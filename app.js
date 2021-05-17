@@ -1,136 +1,282 @@
 document.addEventListener('DOMContentLoaded', () => {
-	const squares = document.querySelectorAll('.grid div')
-	const result = document.querySelector('#result')
-	const displayCurrentPlayer = document.querySelector('#current-player')
-	let currentPlayer = 1
+	const grid = document.querySelector('.grid')
+	let squares = Array.from(document.querySelectorAll('.grid div'))
+	const scoreDisplay = document.querySelector('#score')
+	const startBtn = document.querySelector('#start-button')
+	const width = 10
+	let nextRandom = 0
+	let timerId
+	let score = 0
+	const colors = ['orange', 'red', 'purple', 'green', 'blue']
 
-	for (var i = 0, len = squares.length; i < len; i++)
-		(function (index) {
-			squares[i].onclick = function () {
-				//if the square below is taken, then position is free
-				if (squares[index + 7].classList.contains('taken')) {
-					if (currentPlayer === 1) {
-						squares[index].classList.add('taken')
-						squares[index].classList.add('player-one')
+	//The Tetrominoes
+	const lTetromino = [
+		[1, width + 1, width * 2 + 1, 2],
+		[width, width + 1, width + 2, width * 2 + 2],
+		[1, width + 1, width * 2 + 1, width * 2],
+		[width, width * 2, width * 2 + 1, width * 2 + 2],
+	]
 
-						currentPlayer = 2
-						displayCurrentPlayer.innerHTML = currentPlayer
-					} else if (currentPlayer === 2) {
-						squares[index].classList.add('taken')
-						squares[index].classList.add('player-two')
+	const zTetromino = [
+		[0, width, width + 1, width * 2 + 1],
+		[width + 1, width + 2, width * 2, width * 2 + 1],
+		[0, width, width + 1, width * 2 + 1],
+		[width + 1, width + 2, width * 2, width * 2 + 1],
+	]
 
-						currentPlayer = 1
-						displayCurrentPlayer.innerHTML = currentPlayer
-					}
-					//if the square below current one is not taken, can't go there
-				} else alert('cant go here')
+	const tTetromino = [
+		[1, width, width + 1, width + 2],
+		[1, width + 1, width + 2, width * 2 + 1],
+		[width, width + 1, width + 2, width * 2 + 1],
+		[1, width, width + 1, width * 2 + 1],
+	]
+
+	const oTetromino = [
+		[0, 1, width, width + 1],
+		[0, 1, width, width + 1],
+		[0, 1, width, width + 1],
+		[0, 1, width, width + 1],
+	]
+
+	const iTetromino = [
+		[1, width + 1, width * 2 + 1, width * 3 + 1],
+		[width, width + 1, width + 2, width + 3],
+		[1, width + 1, width * 2 + 1, width * 3 + 1],
+		[width, width + 1, width + 2, width + 3],
+	]
+
+	const theTetrominoes = [
+		lTetromino,
+		zTetromino,
+		tTetromino,
+		oTetromino,
+		iTetromino,
+	]
+
+	let currentPosition = 4
+	let currentRotation = 0
+
+	console.log(theTetrominoes[0][0])
+
+	//randomly select a Tetromino and its first rotation
+	let random = Math.floor(Math.random() * theTetrominoes.length)
+	let current = theTetrominoes[random][currentRotation]
+
+	//draw the Tetromino
+	function draw() {
+		current.forEach((index) => {
+			squares[currentPosition + index].classList.add('tetromino')
+			squares[currentPosition + index].style.backgroundColor = colors[random]
+		})
+	}
+
+	//undraw the Tetromino
+	function undraw() {
+		current.forEach((index) => {
+			squares[currentPosition + index].classList.remove('tetromino')
+			squares[currentPosition + index].style.backgroundColor = ''
+		})
+	}
+
+	//assign functions to keyCodes
+	function control(e) {
+		if (e.keyCode === 37) {
+			moveLeft()
+		} else if (e.keyCode === 38) {
+			rotate()
+		} else if (e.keyCode === 39) {
+			moveRight()
+		} else if (e.keyCode === 40) {
+			moveDown()
+		}
+	}
+	document.addEventListener('keyup', control)
+
+	//move down function
+	function moveDown() {
+		undraw()
+		currentPosition += width
+		draw()
+		freeze()
+	}
+
+	//freeze function
+	function freeze() {
+		if (
+			current.some((index) =>
+				squares[currentPosition + index + width].classList.contains('taken')
+			)
+		) {
+			current.forEach((index) =>
+				squares[currentPosition + index].classList.add('taken')
+			)
+			//start a new tetromino falling
+			random = nextRandom
+			nextRandom = Math.floor(Math.random() * theTetrominoes.length)
+			current = theTetrominoes[random][currentRotation]
+			currentPosition = 4
+			draw()
+			displayShape()
+			addScore()
+			gameOver()
+		}
+	}
+
+	//move the tetromino left, unless is at the edge or there is a blockage
+	function moveLeft() {
+		undraw()
+		const isAtLeftEdge = current.some(
+			(index) => (currentPosition + index) % width === 0
+		)
+		if (!isAtLeftEdge) currentPosition -= 1
+		if (
+			current.some((index) =>
+				squares[currentPosition + index].classList.contains('taken')
+			)
+		) {
+			currentPosition += 1
+		}
+		draw()
+	}
+
+	//move the tetromino right, unless is at the edge or there is a blockage
+	function moveRight() {
+		undraw()
+		const isAtRightEdge = current.some(
+			(index) => (currentPosition + index) % width === width - 1
+		)
+		if (!isAtRightEdge) currentPosition += 1
+		if (
+			current.some((index) =>
+				squares[currentPosition + index].classList.contains('taken')
+			)
+		) {
+			currentPosition -= 1
+		}
+		draw()
+	}
+
+	///FIX ROTATION OF TETROMINOS A THE EDGE
+	function isAtRight() {
+		return current.some((index) => (currentPosition + index + 1) % width === 0)
+	}
+
+	function isAtLeft() {
+		return current.some((index) => (currentPosition + index) % width === 0)
+	}
+
+	function checkRotatedPosition(P) {
+		P = P || currentPosition //get current position.  Then, check if the piece is near the left side.
+		if ((P + 1) % width < 4) {
+			//add 1 because the position index can be 1 less than where the piece is (with how they are indexed).
+			if (isAtRight()) {
+				//use actual position to check if it's flipped over to right side
+				currentPosition += 1 //if so, add one to wrap it back around
+				checkRotatedPosition(P) //check again.  Pass position from start, since long block might need to move more.
 			}
-		})(i)
-
-	//check the board for a win or lose condition
-	function checkBoard() {
-		const winningArrays = [
-			[0, 1, 2, 3],
-			[41, 40, 39, 38],
-			[7, 8, 9, 10],
-			[34, 33, 32, 31],
-			[14, 15, 16, 17],
-			[27, 26, 25, 24],
-			[21, 22, 23, 24],
-			[20, 19, 18, 17],
-			[28, 29, 30, 31],
-			[13, 12, 11, 10],
-			[35, 36, 37, 38],
-			[6, 5, 4, 3],
-			[0, 7, 14, 21],
-			[41, 34, 27, 20],
-			[1, 8, 15, 22],
-			[40, 33, 26, 19],
-			[2, 9, 16, 23],
-			[39, 32, 25, 18],
-			[3, 10, 17, 24],
-			[38, 31, 24, 17],
-			[4, 11, 18, 25],
-			[37, 30, 23, 16],
-			[5, 12, 19, 26],
-			[36, 29, 22, 15],
-			[6, 13, 20, 27],
-			[35, 28, 21, 14],
-			[0, 8, 16, 24],
-			[41, 33, 25, 17],
-			[7, 15, 23, 31],
-			[34, 26, 18, 10],
-			[14, 22, 30, 38],
-			[27, 19, 11, 3],
-			[35, 29, 23, 17],
-			[6, 12, 18, 24],
-			[28, 22, 16, 10],
-			[13, 19, 25, 31],
-			[21, 15, 9, 3],
-			[20, 26, 32, 38],
-			[36, 30, 24, 18],
-			[5, 11, 17, 23],
-			[37, 31, 25, 19],
-			[4, 10, 16, 22],
-			[2, 10, 18, 26],
-			[39, 31, 23, 15],
-			[1, 9, 17, 25],
-			[40, 32, 24, 16],
-			[9, 17, 25, 33],
-			[8, 16, 24, 32],
-			[11, 17, 23, 29],
-			[12, 18, 24, 30],
-			[1, 2, 3, 4],
-			[5, 4, 3, 2],
-			[8, 9, 10, 11],
-			[12, 11, 10, 9],
-			[15, 16, 17, 18],
-			[19, 18, 17, 16],
-			[22, 23, 24, 25],
-			[26, 25, 24, 23],
-			[29, 30, 31, 32],
-			[33, 32, 31, 30],
-			[36, 37, 38, 39],
-			[40, 39, 38, 37],
-			[7, 14, 21, 28],
-			[8, 15, 22, 29],
-			[9, 16, 23, 30],
-			[10, 17, 24, 31],
-			[11, 18, 25, 32],
-			[12, 19, 26, 33],
-			[13, 20, 27, 34],
-		]
-
-		//now take the 4 values in each winningArrays and plug them into the squares
-		for (let y = 0; y < winningArrays.length; y++) {
-			const square1 = squares[winningArrays[y][0]]
-			const square2 = squares[winningArrays[y][1]]
-			const square3 = squares[winningArrays[y][2]]
-			const square4 = squares[winningArrays[y][3]]
-
-			//now check those arrays to see if they all have the class of player-one
-			if (
-				square1.classList.contains('player-one') &&
-				square2.classList.contains('player-one') &&
-				square3.classList.contains('player-one') &&
-				square4.classList.contains('player-one')
-			) {
-				//if they do, player-one is passed as the winner
-				result.innerHTML = 'Player one wins'
-			}
-			//now check those arrays to see if they all have the class of player-two
-			else if (
-				square1.classList.contains('player-two') &&
-				square2.classList.contains('player-two') &&
-				square3.classList.contains('player-two') &&
-				square4.classList.contains('player-two')
-			) {
-				//if they do, player-two is passed as the winner
-				result.innerHTML = 'Player two wins'
+		} else if (P % width > 5) {
+			if (isAtLeft()) {
+				currentPosition -= 1
+				checkRotatedPosition(P)
 			}
 		}
 	}
 
-	//add an eventListener to each square that will trigger the checkBoard function on click
-	squares.forEach((square) => square.addEventListener('click', checkBoard))
+	//rotate the tetromino
+	function rotate() {
+		undraw()
+		currentRotation++
+		if (currentRotation === current.length) {
+			//if the current rotation gets to 4, make it go back to 0
+			currentRotation = 0
+		}
+		current = theTetrominoes[random][currentRotation]
+		checkRotatedPosition()
+		draw()
+	}
+	/////////
+
+	//show up-next tetromino in mini-grid display
+	const displaySquares = document.querySelectorAll('.mini-grid div')
+	const displayWidth = 4
+	const displayIndex = 0
+
+	//the Tetrominos without rotations
+	const upNextTetrominoes = [
+		[1, displayWidth + 1, displayWidth * 2 + 1, 2], //lTetromino
+		[0, displayWidth, displayWidth + 1, displayWidth * 2 + 1], //zTetromino
+		[1, displayWidth, displayWidth + 1, displayWidth + 2], //tTetromino
+		[0, 1, displayWidth, displayWidth + 1], //oTetromino
+		[1, displayWidth + 1, displayWidth * 2 + 1, displayWidth * 3 + 1], //iTetromino
+	]
+
+	//display the shape in the mini-grid display
+	function displayShape() {
+		//remove any trace of a tetromino form the entire grid
+		displaySquares.forEach((square) => {
+			square.classList.remove('tetromino')
+			square.style.backgroundColor = ''
+		})
+		upNextTetrominoes[nextRandom].forEach((index) => {
+			displaySquares[displayIndex + index].classList.add('tetromino')
+			displaySquares[displayIndex + index].style.backgroundColor =
+				colors[nextRandom]
+		})
+	}
+
+	//add functionality to the button
+	startBtn.addEventListener('click', () => {
+		if (timerId) {
+			clearInterval(timerId)
+			timerId = null
+		} else {
+			draw()
+			timerId = setInterval(moveDown, 1000)
+			nextRandom = Math.floor(Math.random() * theTetrominoes.length)
+			displayShape()
+		}
+	})
+
+	//add score
+	function addScore() {
+		for (let i = 0; i < 199; i += width) {
+			const row = [
+				i,
+				i + 1,
+				i + 2,
+				i + 3,
+				i + 4,
+				i + 5,
+				i + 6,
+				i + 7,
+				i + 8,
+				i + 9,
+			]
+
+			if (row.every((index) => squares[index].classList.contains('taken'))) {
+				score += 10
+				scoreDisplay.innerHTML = score
+				row.forEach((index) => {
+					squares[index].classList.remove('taken')
+					squares[index].classList.remove('tetromino')
+					squares[index].style.backgroundColor = ''
+				})
+				const squaresRemoved = squares.splice(i, width)
+				squares = squaresRemoved.concat(squares)
+				squares.forEach((cell) => grid.appendChild(cell))
+			}
+		}
+	}
+
+	//game over
+	function gameOver() {
+		if (
+			current.some((index) =>
+				squares[currentPosition + index].classList.contains('taken')
+			)
+		) {
+			scoreDisplay.innerHTML = 'end'
+			clearInterval(timerId)
+		}
+	}
 })
